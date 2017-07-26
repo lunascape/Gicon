@@ -21,6 +21,7 @@
   },
   "homepage": "http://gicon.lyitlove.com",
   "dependencies": {
+    "async": "^2.5.0",
     "cheerio": "^0.18.0",
     "request": "^2.53.0"
   },

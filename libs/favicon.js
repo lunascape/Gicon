@@ -1,6 +1,7 @@
 var urlParser = require("url");
 
 var $ = require("cheerio");
+var async = require("async");
 
 var request = require("./utils/request");
 var error = require("./utils/errors");
@@ -62,7 +63,7 @@ function getFaviconPath(domain, callback) {
 
     if(resp && resp.statusCode == 200 && body.length
       && /^image/.test(resp.headers["content-type"]) ) {
-      return callback(null, domain, body);
+      return callback(null, [domain], body);
     }
     callback();
   });
@@ -75,22 +76,35 @@ function getFaviconLink(domain, callback) {
 
   request.get(domain, function(err, result, body) {
     if(err) { return callback(error.REQUEST_ERROR(err)); }
+    var links = $(body).find("link[rel*='icon']");
+    var favicons = links.map(function(index, link) {
+      return link.attribs ? link.attribs["href"] : null;
+    }).filter(function(index, link) {
+      return link != null && link.length > 0;
+    });
 
-    var favicon = $(body).find("link[rel*='icon']").attr("href");
-    var path = /^http/.test(favicon) ? favicon : (domain + favicon);
-    favicon ? request({ 
-      url: path, 
-      method: "GET", 
-      encoding: null 
-    }, function(err, resp, body) {
-      if(err) { return callback(error.REQUEST_ERROR()); }
+    async.map(favicons, function(favicon, callback) {
+      var path = /^http/.test(favicon) ? favicon : (domain + favicon);
+      favicon ? request({ 
+        url: path, 
+        method: "GET", 
+        encoding: null 
+      }, function(err, resp, body) {
+        if(err) { return callback(error.REQUEST_ERROR()); }
 
-      if(resp && resp.statusCode == 200 && body.length
-        && /^image/.test(resp.headers["content-type"]) ) {
-        return callback(null, path, body);
-      }
-      callback();
-    }) : callback();
+        if(resp && resp.statusCode == 200 && body.length
+          && /^image/.test(resp.headers["content-type"]) ) {
+          return callback(null, path);
+        } else {
+          callback(null);
+        }
+      }) : callback(null);
+    }, function(err, result) {
+      var favicons = result.filter(function(index, link) {
+        return link && link.length;
+      });
+      return callback(null, favicons, body);
+    });
   });
 }
 
@@ -103,17 +117,25 @@ function followRedirectUrl(url, callback) {
   }
   request.get(url, {
     followRedirect: false
-  }, function(err, resp) {
+  }, function(err, resp, body) {
     if(err) {
       return callback(error.REQUEST_ERROR(err));
     }
     if(resp && resp.statusCode > 300 && resp.statusCode < 400 
         && resp.headers && resp.headers.location) {
       followRedirectUrl(resp.headers.location, callback);
-    }else {
-      var urlobj = urlParser.parse(url);
-      var path = urlobj.protocol + "//" + urlobj.host + urlobj.pathname;
-      callback(null, path);
+    } else {
+      var refreshUrl = $(body).find("meta[http-equiv='refresh']")
+                              .attr("content")
+                              .split(';')
+                              .filter(path => path.indexOf('http') != -1);
+      if (refreshUrl && refreshUrl.length) {
+        followRedirectUrl(refreshUrl[0], callback);
+      } else {
+        var urlobj = urlParser.parse(url);
+        var path = urlobj.protocol + "//" + urlobj.host + urlobj.pathname;
+        callback(null, path);
+      }
     }
   });
 }
