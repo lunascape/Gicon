@@ -63,7 +63,7 @@ function getFaviconPath(domain, callback) {
 
     if(resp && resp.statusCode == 200 && body.length
       && /^image/.test(resp.headers["content-type"]) ) {
-      return callback(null, [domain], body);
+      return callback(null, [{link:domain, rel:''}], body);
     }
     callback();
   });
@@ -78,13 +78,17 @@ function getFaviconLink(domain, callback) {
     if(err) { return callback(error.REQUEST_ERROR(err)); }
     var links = $(body).find("link[rel*='icon']");
     var favicons = links.map(function(index, link) {
-      return link.attribs ? link.attribs["href"] : null;
-    }).filter(function(index, link) {
-      return link != null && link.length > 0;
+      return link.attribs ? {
+        link: link.attribs["href"],
+        rel: link.attribs["rel"],
+      } : null;
+    }).filter(function(index, favicon) {
+      return favicon != null && favicon.link.length > 0;
     });
 
     async.map(favicons, function(favicon, callback) {
-      var path = /^http/.test(favicon) ? favicon : (domain + favicon);
+      var link = favicon.link;
+      var path = /^http/.test(link) ? link : (domain + link);
       favicon ? request({ 
         url: path, 
         method: "GET", 
@@ -94,15 +98,13 @@ function getFaviconLink(domain, callback) {
 
         if(resp && resp.statusCode == 200 && body.length
           && /^image/.test(resp.headers["content-type"]) ) {
-          return callback(null, path);
+          return callback(null, {link: path, rel: favicon.rel});
         } else {
           callback(null);
         }
       }) : callback(null);
     }, function(err, result) {
-      var favicons = result.filter(function(index, link) {
-        return link && link.length;
-      });
+      var favicons = result.filter(favicon => favicon && favicon.link.length);
       return callback(null, favicons, body);
     });
   });
@@ -126,9 +128,8 @@ function followRedirectUrl(url, callback) {
       followRedirectUrl(resp.headers.location, callback);
     } else {
       var refreshUrl = $(body).find("meta[http-equiv='refresh']")
-                              .attr("content")
-                              .split(';')
-                              .filter(path => path.indexOf('http') != -1);
+                              .attr("content");
+      refreshUrl = refreshUrl ? refreshUrl.split(';').filter(path => path.indexOf('http') != -1) : null;
       if (refreshUrl && refreshUrl.length) {
         followRedirectUrl(refreshUrl[0], callback);
       } else {
