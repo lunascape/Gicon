@@ -131,7 +131,11 @@ function followRedirectUrl(url, callback) {
                               .attr("content");
       refreshUrl = refreshUrl ? refreshUrl.split(';').filter(path => path.indexOf('http') != -1) : null;
       if (refreshUrl && refreshUrl.length) {
-        followRedirectUrl(refreshUrl[0], callback);
+        refreshUrl = refreshUrl[0].replace(/['"]/g, '');
+        if (refreshUrl.indexOf('url=') != -1) {
+          refreshUrl = refreshUrl.substring(4);
+        }
+        followRedirectUrl(refreshUrl, callback);
       } else {
         var urlobj = urlParser.parse(url);
         var path = urlobj.protocol + "//" + urlobj.host + urlobj.pathname;
