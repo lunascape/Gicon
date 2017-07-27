@@ -29,7 +29,7 @@ exports.favicon = function(domain, callback) {
     getFaviconLink(url, function(err, path, buffer) {
       if(err) { return callback(err); }
 
-      if(path && buffer) {
+      if(path.length && buffer) {
         return callback(null, path, buffer); 
       }
 
@@ -55,8 +55,8 @@ function getFaviconPath(domain, callback) {
   if(!domain) {
     return callback(error.DOMAIN_CANNOT_NULL());
   }
-
-  domain = domain + "/favicon.ico";
+  var urlobj = urlParser.parse(domain);
+  domain = urlobj.protocol + '//' + urlobj.host + "/favicon.ico";
   request({ url: domain, method: "GET", encoding: null }, 
     function(err, resp, body) {
 
@@ -64,7 +64,8 @@ function getFaviconPath(domain, callback) {
 
     if(resp && resp.statusCode == 200 && body.length
       && /^image/.test(resp.headers["content-type"]) ) {
-      return callback(null, [{link:domain, rel:''}], body);
+      const fileFormat = imageType(body);
+      return callback(null, [{link:domain, ext: fileFormat ? fileFormat.ext : 'ico'}], body);
     }
     callback();
   });
