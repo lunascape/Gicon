@@ -95,8 +95,13 @@ function getFaviconLink(domain, callback) {
         if (link.indexOf('/') == 0) {
           link = urlobj.protocol + "//" + urlobj.host + link;
         } else {
-          if (baseUrl == null) baseUrl = urlobj.pathname + '/';
-          link = urlobj.protocol + "//" + urlobj.host + baseUrl + link;
+          if (baseUrl == null) {
+            link = urlobj.protocol + "//" + urlobj.host + urlobj.pathname + '/' + link;
+          } else if (baseUrl.indexOf(urlobj.protocol) == -1) {
+            link = urlobj.protocol + "//" + urlobj.host + baseUrl + '/' + link;
+          } else {
+            link = baseUrl + '/' + link;
+          }
         }
       }
       var path = /^http/.test(link) ? link : (domain + link);
