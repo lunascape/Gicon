@@ -86,8 +86,19 @@ function getFaviconLink(domain, callback) {
       return favicon != null && favicon.link.length > 0;
     });
 
+    var baseUrl = $(body).find("base").attr("href");
     async.map(favicons, function(favicon, callback) {
       var link = favicon.link;
+      var rel = favicon.rel;
+      if (rel == 'shortcut icon') {
+        var urlobj = urlParser.parse(domain);
+        if (link.indexOf('/') == 0) {
+          link = urlobj.protocol + "//" + urlobj.host + link;
+        } else {
+          if (baseUrl == null) baseUrl = urlobj.pathname + '/';
+          link = urlobj.protocol + "//" + urlobj.host + baseUrl + link;
+        }
+      }
       var path = /^http/.test(link) ? link : (domain + link);
       favicon ? request({ 
         url: path, 
