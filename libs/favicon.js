@@ -2,6 +2,7 @@ var urlParser = require("url");
 
 var $ = require("cheerio");
 var async = require("async");
+var imageType = require('image-type');
 
 var request = require("./utils/request");
 var error = require("./utils/errors");
@@ -73,7 +74,6 @@ function getFaviconPath(domain, callback) {
 function getFaviconLink(domain, callback) {
   callback = callback || function() {};
   if(!domain) { return callback(error.DOMAIN_CANNOT_NULL()); }
-
   request.get(domain, function(err, result, body) {
     if(err) { return callback(error.REQUEST_ERROR(err)); }
     var links = $(body).find("link[rel*='icon']");
@@ -92,7 +92,10 @@ function getFaviconLink(domain, callback) {
       var rel = favicon.rel;
       if (rel == 'shortcut icon') {
         var urlobj = urlParser.parse(domain);
-        if (link.indexOf('/') == 0) {
+        var linkObj = urlParser.parse(link);
+        if (linkObj.protocol) {
+          //no change
+        } else if (link.indexOf('/') == 0) {
           link = urlobj.protocol + "//" + urlobj.host + link;
         } else {
           if (baseUrl == null) {
@@ -114,7 +117,8 @@ function getFaviconLink(domain, callback) {
 
         if(resp && resp.statusCode == 200 && body.length
           && /^image/.test(resp.headers["content-type"]) ) {
-          return callback(null, {link: path, rel: favicon.rel});
+          const fileFormat = imageType(body);
+          return callback(null, {link: path, rel: favicon.rel, ext: fileFormat ? fileFormat.ext : 'ico'});
         } else {
           callback(null);
         }
@@ -147,7 +151,8 @@ function followRedirectUrl(url, callback) {
                               .attr("content");
       refreshUrl = refreshUrl ? refreshUrl.split(';').filter(path => path.indexOf('http') != -1) : null;
       if (refreshUrl && refreshUrl.length) {
-        refreshUrl = refreshUrl[0].replace(/['"]/g, '');
+        refreshUrl = refreshUrl[0];
+        refreshUrl = refreshUrl.replace(/['"]/g, '');
         if (refreshUrl.indexOf('url=') != -1) {
           refreshUrl = refreshUrl.substring(4);
         }
